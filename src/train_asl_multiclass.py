@@ -37,25 +37,43 @@ def infer_class_names(labels: np.ndarray) -> list[str]:
         return [f"C{i}" for i in range(n)]
 
 class ASLMNIST(Dataset):
-    """Charge un CSV Kaggle: label,pixel1,...,pixel784  (28x28 gris)."""
-    def __init__(self, csv_path: Path):
+    """
+    Charge le CSV Kaggle et REMAPPE les labels vers 0..C-1.
+    Conserve :
+      - label_map: dict {label_orig -> label_neuf}
+      - orig_label_ids: liste triée des labels d'origine (ex: [0,1,2,3,4,5,6,7,8,10,...,24])
+    """
+    def __init__(self, csv_path: Path, label_map: dict[int,int] | None = None):
         rows = []
         with open(csv_path, "r") as f:
             reader = csv.reader(f)
             _ = next(reader)  # header
             for r in reader:
                 rows.append(r)
-        self.labels = np.array([int(r[0]) for r in rows], dtype=np.int64)
+
+        labels_raw = np.array([int(r[0]) for r in rows], dtype=np.int64)
         pixels = np.array([r[1:] for r in rows], dtype=np.float32).reshape(-1, 28, 28)
-        self.images = pixels / 255.0
+        self.images = (pixels / 255.0).astype(np.float32)
+
+        # Construire la table de remap à partir du TRAIN (ou réutiliser celle fournie)
+        if label_map is None:
+            uniq = sorted(np.unique(labels_raw))
+            label_map = {old: i for i, old in enumerate(uniq)}
+
+        self.label_map = label_map
+        self.orig_label_ids = sorted(label_map.keys())
+        # Appliquer le remap -> labels contigus 0..C-1
+        self.labels = np.array([label_map[int(v)] for v in labels_raw], dtype=np.int64)
 
     def __len__(self) -> int:
         return len(self.labels)
 
     def __getitem__(self, idx: int):
         x = self.images[idx][None, ...]  # (1,28,28)
-        y = self.labels[idx]
-        return torch.from_numpy(x), int(y)
+        y = int(self.labels[idx])
+        return torch.from_numpy(x), y
+
+ 
 
 class SmallCNN(nn.Module):
     """CNN compacte et robuste pour 28x28 (CPU-friendly)."""
@@ -133,15 +151,19 @@ def main(args):
     print(f"[bold green]Device:[/bold green] {device}")
 
     # Données
+   # Données
     train_csv = Path(args.data_dir) / "sign_mnist_train.csv"
     test_csv  = Path(args.data_dir) / "sign_mnist_test.csv"
-    train_ds = ASLMNIST(train_csv)
-    test_ds  = ASLMNIST(test_csv)
 
-    # Inférer les classes (24 vs 26) à partir du train
-    CLASS_NAMES = infer_class_names(train_ds.labels)
+    # IMPORTANT : le train crée le mapping, le test le réutilise
+    train_ds = ASLMNIST(train_csv, label_map=None)
+    test_ds  = ASLMNIST(test_csv,  label_map=train_ds.label_map)
+
+    # Noms de classes lisibles depuis les labels d'ORIGINE (ex: 0->A, 10->K, 24->Y)
+    CLASS_NAMES = [chr(ord('A') + old) for old in train_ds.orig_label_ids]
     num_classes = len(CLASS_NAMES)
     print(f"[bold]Classes détectées:[/bold] {num_classes} → {CLASS_NAMES}")
+ 
 
     # Split train/val
     from sklearn.model_selection import train_test_split
@@ -168,13 +190,16 @@ def main(args):
         sampler = WeightedRandomSampler(weights=torch.tensor(weights), num_samples=len(lbls), replacement=True)
 
     # Loaders
+    pin_flag = (device.type == "cuda")
+
     train_loader = DataLoader(train_split, batch_size=args.batch_size,
-                              shuffle=(sampler is None), sampler=sampler,
-                              num_workers=2, pin_memory=True)
+                            shuffle=(sampler is None), sampler=sampler,
+                            num_workers=2, pin_memory=pin_flag)
     val_loader   = DataLoader(val_split, batch_size=args.batch_size,
-                              shuffle=False, num_workers=2, pin_memory=True)
+                            shuffle=False, num_workers=2, pin_memory=pin_flag)
     test_loader  = DataLoader(test_ds,  batch_size=args.batch_size,
-                              shuffle=False, num_workers=2, pin_memory=True)
+                            shuffle=False, num_workers=2, pin_memory=pin_flag)
+ 
 
     # Modèle/opt
     model = SmallCNN(num_classes=num_classes).to(device)
