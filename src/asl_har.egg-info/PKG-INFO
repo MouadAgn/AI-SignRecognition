@@ -1,0 +1,48 @@
+Metadata-Version: 2.4
+Name: asl-har
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: <3.13,>=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: joblib>=1.5.1
+Requires-Dist: kaggle>=1.7.4.5
+Requires-Dist: matplotlib>=3.10.5
+Requires-Dist: mediapipe==0.10.21
+Requires-Dist: numpy==1.26.4
+Requires-Dist: opencv-python>=4.11.0.86
+Requires-Dist: pandas>=2.3.2
+Requires-Dist: rapidfuzz>=3.13.0
+Requires-Dist: rich>=14.1.0
+Requires-Dist: scikit-learn>=1.7.1
+Requires-Dist: seaborn>=0.13.2
+Requires-Dist: torch>=2.8.0
+Requires-Dist: torchaudio>=2.8.0
+Requires-Dist: torchvision>=0.23.0
+Requires-Dist: tqdm>=4.67.1
+Requires-Dist: wordfreq>=3.1.1
+Requires-Dist: gradio>=4.0.0
+
+À quoi servent les fichiers src/ donnés
+
+src/demo_realtime.py
+→ Vision en direct : affiche les landmarks de la main (21 points), la main gauche/droite, la bbox, les FPS.
+→ C’est la brique de base pour valider que Mediapipe fonctionne (caméra, perf, stabilité).
+
+src/demo_gestures_rules.py (Script 2 ci-dessus)
+→ Démo “intelligente” sans entraînement : classe quelques gestes courants via des règles (distances/positions).
+→ Idéal pour une présentation rapide (“notre système reconnaît déjà des gestes simples en live”).
+
+src/train_asl_multiclass.py
+→ Entraînement supervisé sur Sign Language MNIST (alphabet ASL en images 28x28).
+→ Produit des métriques, matrice de confusion, PR-curves, et sauvegarde le meilleur modèle (outputs/models/asl_cnn.pt).
+→ Coche les items pédagogiques du prof : early stopping, class weights / sampler, scheduler, PR-AUC.
+
+src/utils_metrics.py
+→ Fonctions utilitaires pour :
+
+sauvegarder les logs (jsonl),
+
+tracer la matrice de confusion,
+
+tracer les courbes précision–rappel (macro AP),
+→ Utilisé par train_asl_multiclass.py pour générer des figures prêtes à mettre dans les slides.

@@ -21,4 +21,5 @@ dependencies = [
     "torchvision>=0.23.0",
     "tqdm>=4.67.1",
     "wordfreq>=3.1.1",
+    "gradio>=4.0.0",
 ]
