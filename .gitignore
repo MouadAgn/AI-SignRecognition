@@ -1,0 +1,23 @@
+@"
+# Python/venv
+.venv/
+__pycache__/
+*.pyc
+
+# uv
+uv.lock
+
+# Outputs
+outputs/
+!outputs/.gitkeep
+outputs/models/
+!outputs/models/.gitkeep
+outputs/logs/
+!outputs/logs/.gitkeep
+outputs/figures/
+!outputs/figures/.gitkeep
+
+# Data
+data/
+!data/.gitkeep
+"@ | Set-Content .gitignore -Encoding UTF8
